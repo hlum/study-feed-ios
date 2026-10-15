@@ -107,4 +107,22 @@ struct FixtureDecodingTests {
             #"{"id": 3, "card_type": "post", "topic": "ios", "title": "t", "body": "b"}"#.utf8))
         #expect(!en.isJapanese && en.tracking(-1.2) == -1.2)
     }
+
+    @Test func askEventStreamParsesTokensSuggestionsAndDone() {
+        var parser = AskEventParser()
+        let lines = [
+            "event: token", #"data: {"text": "Because "}"#,
+            "event: token", #"data: {"text": "日本語もOK\n"}"#,
+            "event: suggestions", #"data: ["What's a SYN flood?", "Make it a flashcard"]"#,
+            "event: done", "data: {}",
+        ]
+        let events = lines.compactMap { parser.feed($0) }
+        #expect(events == [
+            .token("Because "), .token("日本語もOK\n"),
+            .suggestions(["What's a SYN flood?", "Make it a flashcard"]), .done,
+        ])
+        // Unknown events and garbage are ignored, never crash the stream.
+        #expect(parser.feed("event: ping") == nil)
+        #expect(parser.feed("data: not json") == nil)
+    }
 }

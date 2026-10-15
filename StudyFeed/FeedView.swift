@@ -100,7 +100,7 @@ struct CardPage: View {
             await api.markSeen(card.id)
         }
         .sheet(item: $quizCard) { QuizSheet(card: $0, onAnswered: onAnswered).presentationDetents([.large]) }
-        .sheet(item: $askCard) { Text("Ask about \($0.title)").presentationDetents([.large]) }
+        .sheet(item: $askCard) { AskSheet(card: $0).presentationDetents([.large]) }
     }
 
     @ViewBuilder private var content: some View {

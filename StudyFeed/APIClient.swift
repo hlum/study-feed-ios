@@ -70,6 +70,8 @@ final class APIClient {
 
     // MARK: Plumbing
 
+    func endpoint(_ path: String) throws -> URL { try makeURL(path) }
+
     private func makeURL(_ path: String, _ query: [String: String] = [:]) throws -> URL {
         let base = baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !base.isEmpty else { throw APIError.notConfigured }
@@ -79,7 +81,9 @@ final class APIClient {
         return url
     }
 
-    private func check(_ response: URLResponse) throws {
+    nonisolated func validate(_ response: URLResponse) throws { try check(response) }
+
+    nonisolated private func check(_ response: URLResponse) throws {
         if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
             throw APIError.badStatus(http.statusCode)
         }
