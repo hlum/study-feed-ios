@@ -27,6 +27,7 @@ final class FeedStore {
             error = nil
             stories = (try? await api.stories()) ?? []
             stats = try? await api.stats()
+            if let stats { Reminder.update(with: stats) }
         } catch {
             self.error = error.localizedDescription
         }
@@ -34,6 +35,7 @@ final class FeedStore {
 
     func reloadStats() async {
         stats = (try? await api.stats()) ?? stats
+        if let stats { Reminder.update(with: stats) }
     }
 
     /// Call as a card appears; loads the next page when the reader is near the end.
