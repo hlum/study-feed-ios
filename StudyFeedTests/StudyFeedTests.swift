@@ -125,4 +125,30 @@ struct FixtureDecodingTests {
         #expect(parser.feed("event: ping") == nil)
         #expect(parser.feed("data: not json") == nil)
     }
+
+    @Test func richTextSplitsHeadingsParagraphsAndCode() {
+        let md = "## Why it works\n\nFirst line\nsecond line\n\n```swift\nlet x = 1\n```\n\nafter"
+        #expect(RichText.blocks(from: md) == [
+            .heading("Why it works"), .paragraph("First line\nsecond line"), .code("let x = 1"), .paragraph("after"),
+        ])
+        // An unfinished fence while streaming is still shown as code, not lost.
+        #expect(RichText.blocks(from: "text\n```py\nprint(1)") == [.paragraph("text"), .code("print(1)")])
+    }
+
+    @MainActor @Test func flashcardCanOnlyBeRequestedOncePerThread() async throws {
+        let card = try JSONDecoder.studyFeed.decode(Card.self, from: Data(
+            #"{"id": 5, "card_type": "post", "topic": "ai", "title": "t", "body": "b"}"#.utf8))
+        let store = AskStore(api: APIClient(), card: card)
+        #expect(!store.flashcardSaved)
+        store.messages = [
+            ChatMessage(role: "user", text: "Make it a flashcard"),
+            ChatMessage(role: "assistant", text: "Sorry, I couldn't make a flashcard right now. Try again later."),
+        ]
+        #expect(!store.flashcardSaved)   // a failed attempt can be retried
+        store.messages[1].text = "Saved as a flashcard (card 31). It shows up in Review tomorrow."
+        #expect(store.flashcardSaved)
+        let before = store.messages.count
+        store.send("Make it a flashcard")
+        #expect(store.messages.count == before)   // blocked: nothing sent, no second Claude call
+    }
 }

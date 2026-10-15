@@ -85,11 +85,12 @@ struct CardPage: View {
 
     @State private var quizCard: Card?
     @State private var askCard: Card?
+    @State private var deeperCard: Card?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             content.padding(.horizontal, 20)
-            ActionBar(card: card, onQuiz: { quizCard = card }, onAsk: { askCard = card })
+            ActionBar(card: card, onQuiz: { quizCard = card }, onAsk: { askCard = card }, onDeeper: { deeperCard = card })
                 .padding(.horizontal, 16)
         }
         .padding(.vertical, 20)
@@ -101,6 +102,7 @@ struct CardPage: View {
         }
         .sheet(item: $quizCard) { QuizSheet(card: $0, onAnswered: onAnswered).presentationDetents([.large]) }
         .sheet(item: $askCard) { AskSheet(card: $0).presentationDetents([.large]) }
+        .sheet(item: $deeperCard) { DeeperSheet(card: $0).presentationDetents([.large]) }
     }
 
     @ViewBuilder private var content: some View {
@@ -142,6 +144,7 @@ struct ActionBar: View {
     let card: Card
     let onQuiz: () -> Void
     let onAsk: () -> Void
+    let onDeeper: () -> Void
 
     @State private var gotIt = false
     @State private var saved = false
@@ -156,6 +159,10 @@ struct ActionBar: View {
                 Image(systemName: "bubble.left").frame(width: 44, height: 44)
             }
             .accessibilityLabel("Ask Claude")
+            Button(action: onDeeper) {
+                Image(systemName: "text.book.closed").frame(width: 44, height: 44)
+            }
+            .accessibilityLabel("Go deeper")
             Button { saved.toggle(); Task { await api.react(card.id, kind: "save", on: saved) } } label: {
                 Image(systemName: saved ? "bookmark.fill" : "bookmark").frame(width: 44, height: 44)
             }

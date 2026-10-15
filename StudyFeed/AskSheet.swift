@@ -28,9 +28,18 @@ final class AskStore {
         catch { self.error = error.localizedDescription }
     }
 
+    static let flashcardRequest = "Make it a flashcard"
+
+    /// True once the thread shows a saved flashcard. The server stores the thread, so this
+    /// survives closing the sheet. A failed attempt ("Sorry, I couldn't...") can still be retried.
+    var flashcardSaved: Bool {
+        messages.contains { $0.role == "assistant" && $0.text.hasPrefix("Saved as a flashcard") }
+    }
+
     func send(_ text: String) {
         let question = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !question.isEmpty, !isStreaming else { return }
+        if question == Self.flashcardRequest, flashcardSaved { return }
         error = nil
         suggestions = []
         messages.append(ChatMessage(role: "user", text: question))
@@ -139,6 +148,10 @@ private struct AskContent: View {
 
     @ViewBuilder private var chips: some View {
         let items = store.messages.isEmpty ? store.starters : followUps
+        if store.flashcardSaved {
+            Label("Saved as a flashcard. It's in Review tomorrow.", systemImage: "checkmark.circle.fill")
+                .font(.subheadline).foregroundStyle(Theme.accent)
+        }
         if !items.isEmpty {
             FlowLayout(spacing: 8) {
                 ForEach(items, id: \.self) { text in
@@ -156,9 +169,10 @@ private struct AskContent: View {
 
     /// The server's follow-ups, plus a flashcard shortcut once there is something to save.
     private var followUps: [String] {
-        var items = store.suggestions
-        let flashcard = "Make it a flashcard"
-        if !store.messages.isEmpty, !items.contains(flashcard) { items.append(flashcard) }
+        let flashcard = AskStore.flashcardRequest
+        var items = store.suggestions.filter { $0 != flashcard }
+        if store.flashcardSaved { return items }
+        if !store.messages.isEmpty { items.append(flashcard) }
         return items
     }
 
@@ -193,35 +207,61 @@ private struct AskContent: View {
     }
 }
 
-/// Plain text with `inline markdown` and fenced code blocks, the two things replies use.
+/// Plain text with `inline markdown`, headings and fenced code blocks: what replies and
+/// "go deeper" articles use.
 struct RichText: View {
+    enum Block: Equatable {
+        case paragraph(String), heading(String), code(String)
+    }
+
     let text: String
     var streaming = false
 
-    private var parts: [(isCode: Bool, text: String)] {
-        text.components(separatedBy: "```").enumerated().compactMap { i, part in
+    static func blocks(from text: String) -> [Block] {
+        var out: [Block] = []
+        for (i, part) in text.components(separatedBy: "```").enumerated() {
             if i % 2 == 1 {
                 // Drop the language tag on the fence line.
                 let lines = part.split(separator: "\n", omittingEmptySubsequences: false)
-                return (true, lines.dropFirst().joined(separator: "\n").trimmingCharacters(in: .newlines))
+                out.append(.code(lines.dropFirst().joined(separator: "\n").trimmingCharacters(in: .newlines)))
+                continue
             }
-            let trimmed = part.trimmingCharacters(in: .whitespacesAndNewlines)
-            return trimmed.isEmpty ? nil : (false, trimmed)
+            var paragraph: [String] = []
+            func flush() {
+                let t = paragraph.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+                if !t.isEmpty { out.append(.paragraph(t)) }
+                paragraph = []
+            }
+            for line in part.components(separatedBy: "\n") {
+                if line.hasPrefix("#") {
+                    flush()
+                    out.append(.heading(line.drop { $0 == "#" }.trimmingCharacters(in: .whitespaces)))
+                } else if line.trimmingCharacters(in: .whitespaces).isEmpty {
+                    flush()
+                } else {
+                    paragraph.append(line)
+                }
+            }
+            flush()
         }
+        return out
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            ForEach(Array(parts.enumerated()), id: \.offset) { i, part in
-                if part.isCode {
+        let blocks = Self.blocks(from: text)
+        VStack(alignment: .leading, spacing: 12) {
+            ForEach(Array(blocks.enumerated()), id: \.offset) { i, block in
+                switch block {
+                case .code(let code):
                     ScrollView(.horizontal, showsIndicators: false) {
-                        Text(part.text).font(.mono(.footnote)).fixedSize()
-                            .padding(14)
+                        Text(code).font(.mono(.footnote)).fixedSize().padding(14)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(Theme.fill, in: RoundedRectangle(cornerRadius: 12))
-                } else {
-                    (Text(markdown(part.text)) + (streaming && i == parts.count - 1 ? Text(" ▍").foregroundColor(Theme.accent) : Text("")))
+                case .heading(let title):
+                    Text(markdown(title)).font(.system(.title3, weight: .bold)).fixedSize(horizontal: false, vertical: true)
+                case .paragraph(let p):
+                    (Text(markdown(p)) + (streaming && i == blocks.count - 1 ? Text(" ▍").foregroundColor(Theme.accent) : Text("")))
                         .font(.body).fixedSize(horizontal: false, vertical: true)
                 }
             }
