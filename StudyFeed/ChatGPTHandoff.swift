@@ -1,8 +1,8 @@
 import UIKit
 
-/// Hands a card to the ChatGPT app: a prompt with the brief and the source links is put on the
-/// clipboard (so it can always be pasted) and opened as `chatgpt.com/?q=...`, a universal link
-/// that opens the ChatGPT app when it's installed and the website otherwise.
+/// Hands a card to the ChatGPT app in one tap: a prompt with the brief and the source link,
+/// opened as `chatgpt.com/?q=...`, a universal link that opens the ChatGPT app when it's
+/// installed and the website otherwise.
 enum ChatGPTHandoff {
     /// Most of a URL budget goes to the encoded prompt; this keeps the link comfortably openable.
     static let maxQueryCharacters = 1_500
@@ -25,6 +25,9 @@ enum ChatGPTHandoff {
         }
         if let link = safeLink(card.source?.url) {
             lines.append((ja ? "出典: " : "Source: ") + link)
+        } else {
+            lines.append(ja ? "出典: 元記事のリンクはありません。信頼できる一次情報のリンクを示してください。"
+                            : "Source: there is no article link for this one, so please point me to reliable primary sources.")
         }
         lines.append("")
         lines.append(ja
@@ -63,15 +66,9 @@ enum ChatGPTHandoff {
             "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~")) ?? ""
     }
 
-    @MainActor static func copy(_ card: Card) {
-        UIPasteboard.general.string = prompt(for: card)
-    }
-
-    /// Copies the full prompt, then opens ChatGPT with it.
+    /// Opens ChatGPT with the prompt filled in.
     @MainActor static func open(_ card: Card) {
-        let full = prompt(for: card)
-        UIPasteboard.general.string = full
-        guard let url = url(for: full) else { return }
+        guard let url = url(for: prompt(for: card)) else { return }
         // Try the app first; if there's no app for the link, open the website instead.
         UIApplication.shared.open(url, options: [.universalLinksOnly: true]) { opened in
             if !opened { UIApplication.shared.open(url) }

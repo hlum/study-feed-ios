@@ -182,6 +182,12 @@ struct FixtureDecodingTests {
         let q = try #require(URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.first { $0.name == "q" }?.value)
         #expect(q.contains("Source: https://example.com/a?b=1&c=2"))
         #expect(url.absoluteString.count < 1_700)
+
+        // No article link: say so, never invent one.
+        var none = card
+        none.source = nil
+        let noLink = ChatGPTHandoff.prompt(for: none)
+        #expect(noLink.contains("no article link") && !noLink.contains("http"))
     }
 
     @Test func japaneseCardsGetAJapanesePrompt() throws {
@@ -202,5 +208,19 @@ struct FixtureDecodingTests {
         #expect(store.nextPart(of: store.cards[0])?.id == 3)   // same series, next part
         #expect(store.nextPart(of: store.cards[2]) == nil)     // part 3 isn't loaded yet
         #expect(store.nextPart(of: store.cards[3]) == nil)     // news has no series
+    }
+
+    @MainActor @Test func sitesRowNarrowsToTheOtherFilters() throws {
+        func card(_ id: Int, _ site: String, lang: String) throws -> Card {
+            try JSONDecoder.studyFeed.decode(Card.self, from: Data(
+                #"{"id": \#(id), "card_type": "post", "topic": "ai", "lang": "\#(lang)", "title": "t", "body": "b", "source": {"label": "\#(site)"}}"#.utf8))
+        }
+        let store = FeedStore(api: APIClient())
+        store.cards = [try card(1, "Krebs", lang: "en"), try card(2, "Zenn", lang: "ja"), try card(3, "Qiita", lang: "ja")]
+        #expect(Set(store.sites.map(\.name)) == ["Krebs", "Zenn", "Qiita"])
+        store.filter.japanese = true
+        #expect(Set(store.sites.map(\.name)) == ["Zenn", "Qiita"])           // only Japanese sites
+        store.filter.siteKeys = ["krebs"]                                      // a chosen site stays listed
+        #expect(store.sites.contains { $0.key == "krebs" })
     }
 }

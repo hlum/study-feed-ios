@@ -60,11 +60,22 @@ final class FeedStore {
         Dictionary(grouping: cards, by: \.topic).sorted { $0.value.count > $1.value.count }.map(\.key)
     }
 
-    /// Sites present in the loaded news cards: (key, display name), most common first.
+    /// Sites for the chip row: from the loaded news cards that pass the other filters, so choosing
+    /// 日本語 or a topic narrows the row to the sites that matter. Chosen sites always stay listed.
     var sites: [(key: String, name: String)] {
-        let news = cards.compactMap { c in c.siteKey.map { ($0, c.siteName ?? $0) } }
-        return Dictionary(grouping: news, by: \.0).sorted { $0.value.count > $1.value.count }
-            .compactMap { $0.value.first.map { (key: $0.0, name: $0.1) } }
+        var others = filter
+        others.siteKeys = []
+        let pool = others.isActive ? cards.filter(others.matches) : cards
+        func names(_ cards: [Card]) -> [(key: String, name: String)] {
+            let news = cards.compactMap { c in c.siteKey.map { ($0, c.siteName ?? $0) } }
+            return Dictionary(grouping: news, by: \.0).sorted { $0.value.count > $1.value.count }
+                .compactMap { $0.value.first.map { (key: $0.0, name: $0.1) } }
+        }
+        var result = names(pool)
+        for chosen in names(cards) where filter.siteKeys.contains(chosen.key) && !result.contains(where: { $0.key == chosen.key }) {
+            result.append(chosen)
+        }
+        return result
     }
 
     /// The next part of this card's series, if it is among the cards being shown.

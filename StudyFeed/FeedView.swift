@@ -157,30 +157,27 @@ struct ActionBar: View {
     @State private var saved = false
 
     var body: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: 2) {
             Button { gotIt.toggle(); Task { await api.react(card.id, kind: "got_it", on: gotIt) } } label: {
-                Image(systemName: gotIt ? "heart.fill" : "heart").frame(width: 44, height: 44)
+                Image(systemName: gotIt ? "heart.fill" : "heart").frame(width: 42, height: 44)
             }
             .accessibilityLabel("Got it")
             Button(action: onAsk) {
-                Image(systemName: "bubble.left").frame(width: 44, height: 44)
+                Image(systemName: "bubble.left").frame(width: 42, height: 44)
             }
             .accessibilityLabel("Ask Claude")
             Button(action: onDeeper) {
-                Image(systemName: "text.book.closed").frame(width: 44, height: 44)
+                Image(systemName: "text.book.closed").frame(width: 42, height: 44)
             }
             .accessibilityLabel("Go deeper")
             Button { saved.toggle(); Task { await api.react(card.id, kind: "save", on: saved) } } label: {
-                Image(systemName: saved ? "bookmark.fill" : "bookmark").frame(width: 44, height: 44)
+                Image(systemName: saved ? "bookmark.fill" : "bookmark").frame(width: 42, height: 44)
             }
             .accessibilityLabel("Save")
-            Menu {
-                Button { ChatGPTHandoff.open(card) } label: { Label("Ask ChatGPT", systemImage: "arrow.up.forward.app") }
-                Button { ChatGPTHandoff.copy(card) } label: { Label("Copy brief with links", systemImage: "doc.on.doc") }
-            } label: {
-                Image(systemName: "ellipsis").frame(width: 44, height: 44)
+            Button { ChatGPTHandoff.open(card) } label: {
+                Image(systemName: "arrow.up.forward.app").frame(width: 42, height: 44)
             }
-            .accessibilityLabel("More")
+            .accessibilityLabel("Ask ChatGPT")
             Spacer()
             Button(action: onQuiz) {
                 Text(card.isRare ? "Quiz · 2× XP" : "Quiz")
