@@ -87,8 +87,15 @@ struct FixtureDecodingTests {
         var filter = FeedFilter()
         filter.kind = "lesson"
         #expect(filter.matches(lesson) && !filter.matches(ios))
-        filter = FeedFilter(topic: .init(rawValue: "ios"), japanese: true)
+        filter = FeedFilter(topics: [Topic(rawValue: "ios")], japanese: true)
         #expect(!filter.matches(ios))   // not tagged Japanese
+
+        // Several topics and several sites: any one of each group matches.
+        filter = FeedFilter(topics: [Topic(rawValue: "ios"), .security], siteKeys: [krebsA.siteKey!, "zenn"])
+        #expect(!filter.matches(ios))                    // right topic, but no site
+        #expect(!filter.matches(lesson))                 // a lesson has no site
+        let krebsIOS = try JSONDecoder.studyFeed.decode(Card.self, from: Data(card(#", "source": {"label": "Zenn"}"#).utf8))
+        #expect(filter.matches(krebsIOS))                // ios topic and Zenn site
     }
 
     @Test func japaneseCardsGetNeutralTrackingAndJapaneseLocale() throws {

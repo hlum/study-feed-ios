@@ -1,19 +1,20 @@
 import Foundation
 import Observation
 
-/// Which cards the feed shows. Everything is optional; empty means "all".
+/// Which cards the feed shows. Empty sets mean "all". Within topics, or within sites,
+/// a card needs to match any one chosen; across groups it must match every group.
 struct FeedFilter: Equatable {
-    var kind: String?      // "news" | "lesson"
-    var topic: Topic?
-    var siteKey: String?
+    var kind: String?          // "news" | "lesson"
+    var topics: Set<Topic> = []
+    var siteKeys: Set<String> = []
     var japanese = false
 
-    var isActive: Bool { kind != nil || topic != nil || siteKey != nil || japanese }
+    var isActive: Bool { kind != nil || !topics.isEmpty || !siteKeys.isEmpty || japanese }
 
     func matches(_ card: Card) -> Bool {
         if let kind, card.resolvedKind != kind { return false }
-        if let topic, card.topic != topic { return false }
-        if let siteKey, card.siteKey != siteKey { return false }
+        if !topics.isEmpty, !topics.contains(card.topic) { return false }
+        if !siteKeys.isEmpty, !(card.siteKey.map(siteKeys.contains) ?? false) { return false }
         if japanese, card.lang != "ja" { return false }
         return true
     }
