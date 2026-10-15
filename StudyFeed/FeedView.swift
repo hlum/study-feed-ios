@@ -7,6 +7,7 @@ struct FeedView: View {
     var body: some View {
         VStack(spacing: 0) {
             header
+            if !store.cards.isEmpty { FilterBar(store: store) }
             if store.cards.isEmpty {
                 emptyState
             } else {
@@ -16,7 +17,10 @@ struct FeedView: View {
                             StoriesRow(stories: store.stories).padding(.vertical, 12)
                             Divider().overlay(Theme.sep)
                         }
-                        ForEach(store.cards) { card in
+                        if store.visibleCards.isEmpty {
+                            noMatches
+                        }
+                        ForEach(store.visibleCards) { card in
                             CardPage(card: card, onAnswered: { Task { await store.reloadStats() } })
                                 .task { await store.cardAppeared(card) }
                             Divider().overlay(Theme.sep)
@@ -44,6 +48,17 @@ struct FeedView: View {
         }
         .padding(.horizontal, 20)
         .frame(height: 48)
+    }
+
+    private var noMatches: some View {
+        VStack(spacing: 10) {
+            Text(store.isLoading ? "Looking for matches" : "Nothing here yet").font(.headline)
+            Text("No loaded cards match this filter.").font(.subheadline).foregroundStyle(Theme.muted)
+            Button("Show everything") { store.filter = FeedFilter() }
+                .buttonStyle(.bordered).tint(Theme.accent)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 48)
     }
 
     private var emptyState: some View {

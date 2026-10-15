@@ -66,4 +66,28 @@ struct FixtureDecodingTests {
         #expect(card.reviewFront == "Q?")
         #expect(card.reviewBack == "right\n\nbecause")
     }
+
+    @Test func unknownTopicAndCardTypeStillDecodeAndFiltersWork() throws {
+        func card(_ extra: String) -> String {
+            """
+            {"id": 1, "card_type": "carousel", "topic": "ios", "title": "t", "body": "b"\(extra)}
+            """
+        }
+        let ios = try JSONDecoder.studyFeed.decode(Card.self, from: Data(card("").utf8))
+        #expect(ios.topic.title == "iOS" && ios.cardType == .post)
+        #expect(ios.resolvedKind == "news")   // no series, so it came from an article
+
+        let lesson = try JSONDecoder.studyFeed.decode(Card.self, from: Data(card(#", "series_id": "swiftui""#).utf8))
+        #expect(lesson.resolvedKind == "lesson" && lesson.siteName == nil)
+
+        let krebsA = try JSONDecoder.studyFeed.decode(Card.self, from: Data(card(#", "source": {"label": "KrebsOnSecurity"}"#).utf8))
+        let krebsB = try JSONDecoder.studyFeed.decode(Card.self, from: Data(card(#", "source": {"label": "Krebs on Security"}"#).utf8))
+        #expect(krebsA.siteKey == krebsB.siteKey)
+
+        var filter = FeedFilter()
+        filter.kind = "lesson"
+        #expect(filter.matches(lesson) && !filter.matches(ios))
+        filter = FeedFilter(topic: .init(rawValue: "ios"), japanese: true)
+        #expect(!filter.matches(ios))   // not tagged Japanese
+    }
 }

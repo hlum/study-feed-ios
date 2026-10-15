@@ -7,7 +7,7 @@ private extension Card {
     }
 
     var metaLine: String {
-        [topic.title, lessonLine].compactMap { $0 }.joined(separator: " · ")
+        [topic.title, lessonLine ?? siteName].compactMap { $0 }.joined(separator: " · ")
     }
 }
 

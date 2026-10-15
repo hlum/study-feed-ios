@@ -5,17 +5,37 @@ import Foundation
 
 enum CardType: String, Codable {
     case poster, post, terminal
+
+    /// A card type the app doesn't know yet still shows, as a plain post.
+    init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = CardType(rawValue: raw) ?? .post
+    }
 }
 
-enum Topic: String, Codable, CaseIterable {
-    case networking, security, ai, swe
+/// Topics are open-ended: the server can add "ios" or anything else without an app update.
+struct Topic: RawRepresentable, Codable, Hashable {
+    let rawValue: String
+
+    init(rawValue: String) { self.rawValue = rawValue }
+    init(from decoder: Decoder) throws { rawValue = try decoder.singleValueContainer().decode(String.self) }
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.singleValueContainer()
+        try c.encode(rawValue)
+    }
+
+    static let networking = Topic(rawValue: "networking")
+    static let security = Topic(rawValue: "security")
+    static let ai = Topic(rawValue: "ai")
+    static let swe = Topic(rawValue: "swe")
 
     var title: String {
-        switch self {
-        case .networking: "Networking"
-        case .security: "Security"
-        case .ai: "AI"
-        case .swe: "Software"
+        switch rawValue {
+        case "swe": "Software"
+        case "ai": "AI"
+        case "ios": "iOS"
+        case "": "Other"
+        default: rawValue.prefix(1).uppercased() + rawValue.dropFirst()
         }
     }
 }
@@ -39,11 +59,31 @@ struct Card: Codable, Identifiable, Hashable {
     var rare: Bool?
     var isReview: Bool?
     var previewIntervals: [String: String]?
+    // Optional extras the server may add for filtering; the app falls back when absent.
+    var kind: String?
+    var lang: String?
+    var site: String?
+    var tags: [String]?
 
     static func == (a: Card, b: Card) -> Bool { a.id == b.id }
     func hash(into h: inout Hasher) { h.combine(id) }
 
     var isRare: Bool { rare ?? false }
+
+    /// "news" (from an article) or "lesson" (part of a series). Series cards have no article.
+    var resolvedKind: String { kind ?? (seriesId == nil ? "news" : "lesson") }
+
+    /// The site a news card came from, e.g. "KrebsOnSecurity". Nil for lessons.
+    var siteName: String? {
+        let name = site ?? source?.label
+        guard let name, !name.isEmpty, resolvedKind == "news" else { return nil }
+        return name
+    }
+
+    /// Spelling-insensitive key so "KrebsOnSecurity" and "Krebs on Security" are one site.
+    var siteKey: String? {
+        siteName?.lowercased().filter { $0.isLetter || $0.isNumber }
+    }
 }
 
 struct Source: Codable, Hashable {

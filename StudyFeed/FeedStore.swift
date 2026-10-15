@@ -1,6 +1,24 @@
 import Foundation
 import Observation
 
+/// Which cards the feed shows. Everything is optional; empty means "all".
+struct FeedFilter: Equatable {
+    var kind: String?      // "news" | "lesson"
+    var topic: Topic?
+    var siteKey: String?
+    var japanese = false
+
+    var isActive: Bool { kind != nil || topic != nil || siteKey != nil || japanese }
+
+    func matches(_ card: Card) -> Bool {
+        if let kind, card.resolvedKind != kind { return false }
+        if let topic, card.topic != topic { return false }
+        if let siteKey, card.siteKey != siteKey { return false }
+        if japanese, card.lang != "ja" { return false }
+        return true
+    }
+}
+
 @MainActor @Observable
 final class FeedStore {
     var cards: [Card] = []
@@ -8,6 +26,7 @@ final class FeedStore {
     var stats: Stats?
     var error: String?
     var isLoading = false
+    var filter = FeedFilter() { didSet { if oldValue != filter { Task { await loadMoreIfSparse() } } } }
 
     @ObservationIgnored private let api: APIClient
     @ObservationIgnored private var cursor: Int?
@@ -33,6 +52,31 @@ final class FeedStore {
         }
     }
 
+    var visibleCards: [Card] { filter.isActive ? cards.filter(filter.matches) : cards }
+
+    /// Topics present in the loaded cards, most common first.
+    var topics: [Topic] {
+        Dictionary(grouping: cards, by: \.topic).sorted { $0.value.count > $1.value.count }.map(\.key)
+    }
+
+    /// Sites present in the loaded news cards: (key, display name), most common first.
+    var sites: [(key: String, name: String)] {
+        let news = cards.compactMap { c in c.siteKey.map { ($0, c.siteName ?? $0) } }
+        return Dictionary(grouping: news, by: \.0).sorted { $0.value.count > $1.value.count }
+            .compactMap { $0.value.first.map { (key: $0.0, name: $0.1) } }
+    }
+
+    var hasJapanese: Bool { cards.contains { $0.lang == "ja" } }
+
+    /// A narrow filter may match few of the loaded cards; keep paging until there is something to read.
+    func loadMoreIfSparse() async {
+        var attempts = 0
+        while filter.isActive, visibleCards.count < 6, !reachedEnd, attempts < 6 {
+            attempts += 1
+            await loadNextPage()
+        }
+    }
+
     func reloadStats() async {
         stats = (try? await api.stats()) ?? stats
         if let stats { Reminder.update(with: stats) }
@@ -40,7 +84,13 @@ final class FeedStore {
 
     /// Call as a card appears; loads the next page when the reader is near the end.
     func cardAppeared(_ card: Card) async {
-        guard !reachedEnd, !isLoading, let index = cards.firstIndex(of: card), index >= cards.count - 3 else { return }
+        let visible = visibleCards
+        guard let index = visible.firstIndex(of: card), index >= visible.count - 3 else { return }
+        await loadNextPage()
+    }
+
+    private func loadNextPage() async {
+        guard !reachedEnd, !isLoading else { return }
         isLoading = true
         defer { isLoading = false }
         do {
