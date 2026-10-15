@@ -3,11 +3,13 @@ import SwiftUI
 struct ContentView: View {
     @State private var api: APIClient
     @State private var store: FeedStore
+    @State private var review: ReviewStore
 
     init() {
         let api = APIClient()
         _api = State(initialValue: api)
         _store = State(initialValue: FeedStore(api: api))
+        _review = State(initialValue: ReviewStore(api: api))
     }
 
     var body: some View {
@@ -16,8 +18,9 @@ struct ContentView: View {
                 FeedView(store: store)
             }
             Tab("Review", systemImage: "rectangle.stack") {
-                Text("Review").foregroundStyle(Theme.muted)
+                ReviewView(store: review)
             }
+            .badge(review.dueCount)
             Tab("You", systemImage: "person") {
                 YouView(store: store)
             }
@@ -25,6 +28,7 @@ struct ContentView: View {
         .environment(api)
         .tint(Theme.accent)
         .preferredColorScheme(.dark)
+        .task { await review.load() }
     }
 }
 

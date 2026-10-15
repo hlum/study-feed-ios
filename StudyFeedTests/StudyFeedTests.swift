@@ -52,4 +52,18 @@ struct FixtureDecodingTests {
         let minimal = try JSONDecoder.studyFeed.decode(AnswerResult.self, from: Data(#"{"correct":false,"xp":0}"#.utf8))
         #expect(!minimal.correct && minimal.level == nil)
     }
+
+    @Test func reviewCardsCarryIntervalPreviewsAndFallBackToTheQuiz() throws {
+        let json = """
+        {"due": 1, "cards": [{"id": 9, "card_type": "post", "topic": "networking", "title": "t", "body": "b",
+          "quiz": {"question": "Q?", "options": ["w", "right", "x", "y"], "answer": 1, "explanation": "because"},
+          "is_review": true,
+          "preview_intervals": {"again": "10 min", "hard": "2 days", "good": "6 days", "easy": "2 weeks"}}]}
+        """
+        let page = try JSONDecoder.studyFeed.decode(ReviewPage.self, from: Data(json.utf8))
+        let card = try #require(page.cards.first)
+        #expect(card.previewIntervals?["good"] == "6 days")
+        #expect(card.reviewFront == "Q?")
+        #expect(card.reviewBack == "right\n\nbecause")
+    }
 }
