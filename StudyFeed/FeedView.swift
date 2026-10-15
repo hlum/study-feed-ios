@@ -3,7 +3,6 @@ import SwiftUI
 struct FeedView: View {
     @Environment(APIClient.self) private var api
     let store: FeedStore
-    @State private var currentID: Int?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -11,24 +10,22 @@ struct FeedView: View {
             if store.cards.isEmpty {
                 emptyState
             } else {
-                // GeometryReader (not containerRelativeFrame) so a page is the height
-                // visible above the tab bar, not the full scroll view behind it.
-                GeometryReader { geo in
-                    ScrollView(.vertical) {
-                        LazyVStack(spacing: 0) {
-                            ForEach(Array(store.cards.enumerated()), id: \.element.id) { index, card in
-                                CardPage(card: card, showStories: index == 0, stories: store.stories)
-                                    .frame(width: geo.size.width, height: geo.size.height)
-                                    .task { await store.cardAppeared(card) }
-                            }
+                ScrollView(.vertical) {
+                    LazyVStack(spacing: 0) {
+                        if !store.stories.isEmpty {
+                            StoriesRow(stories: store.stories).padding(.vertical, 12)
+                            Divider().overlay(Theme.sep)
                         }
-                        .scrollTargetLayout()
+                        ForEach(store.cards) { card in
+                            CardPage(card: card)
+                                .task { await store.cardAppeared(card) }
+                            Divider().overlay(Theme.sep)
+                        }
+                        if store.isLoading { ProgressView().padding(24) }
                     }
-                    .scrollTargetBehavior(.viewAligned(limitBehavior: .always))
-                    .scrollPosition(id: $currentID)
-                    .scrollIndicators(.hidden)
-                    .refreshable { await store.refresh() }
                 }
+                .scrollIndicators(.hidden)
+                .refreshable { await store.refresh() }
             }
         }
         .background(Theme.bg)
@@ -65,28 +62,21 @@ struct FeedView: View {
     }
 }
 
-/// One full-screen page of the feed: optional stories, the card, then its actions.
+/// One post in the feed: content, then its actions directly underneath.
 struct CardPage: View {
     @Environment(APIClient.self) private var api
     let card: Card
-    let showStories: Bool
-    let stories: [Story]
 
     @State private var quizCard: Card?
     @State private var askCard: Card?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            if showStories && !stories.isEmpty { StoriesRow(stories: stories) }
-            ScrollView(.vertical, showsIndicators: false) {
-                content.padding(.horizontal, 20).padding(.bottom, 8)
-            }
-            .scrollBounceBehavior(.basedOnSize)
+        VStack(alignment: .leading, spacing: 8) {
+            content.padding(.horizontal, 20)
             ActionBar(card: card, onQuiz: { quizCard = card }, onAsk: { askCard = card })
-                .padding(.horizontal, 20)
+                .padding(.horizontal, 16)
         }
-        .padding(.top, 8)
-        .padding(.bottom, 8)
+        .padding(.vertical, 20)
         .task(id: card.id) {
             try? await Task.sleep(for: .seconds(2))
             guard !Task.isCancelled else { return }
@@ -98,7 +88,7 @@ struct CardPage: View {
 
     @ViewBuilder private var content: some View {
         switch card.cardType {
-        case .poster: PosterCard(card: card).frame(minHeight: 440)
+        case .poster: PosterCard(card: card).frame(height: 480)
         case .post: PostCard(card: card)
         case .terminal: TerminalCard(card: card)
         }
