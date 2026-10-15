@@ -17,7 +17,7 @@ struct FeedView: View {
                             Divider().overlay(Theme.sep)
                         }
                         ForEach(store.cards) { card in
-                            CardPage(card: card)
+                            CardPage(card: card, onAnswered: { Task { await store.reloadStats() } })
                                 .task { await store.cardAppeared(card) }
                             Divider().overlay(Theme.sep)
                         }
@@ -66,6 +66,7 @@ struct FeedView: View {
 struct CardPage: View {
     @Environment(APIClient.self) private var api
     let card: Card
+    var onAnswered: () -> Void = {}
 
     @State private var quizCard: Card?
     @State private var askCard: Card?
@@ -82,7 +83,7 @@ struct CardPage: View {
             guard !Task.isCancelled else { return }
             await api.markSeen(card.id)
         }
-        .sheet(item: $quizCard) { Text("Quiz for \($0.title)").presentationDetents([.large]) }
+        .sheet(item: $quizCard) { QuizSheet(card: $0, onAnswered: onAnswered).presentationDetents([.large]) }
         .sheet(item: $askCard) { Text("Ask about \($0.title)").presentationDetents([.large]) }
     }
 

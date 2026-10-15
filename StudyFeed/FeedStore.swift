@@ -32,6 +32,10 @@ final class FeedStore {
         }
     }
 
+    func reloadStats() async {
+        stats = (try? await api.stats()) ?? stats
+    }
+
     /// Call as a card appears; loads the next page when the reader is near the end.
     func cardAppeared(_ card: Card) async {
         guard !reachedEnd, !isLoading, let index = cards.firstIndex(of: card), index >= cards.count - 3 else { return }

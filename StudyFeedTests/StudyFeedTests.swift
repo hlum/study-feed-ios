@@ -40,4 +40,16 @@ struct FixtureDecodingTests {
         _ = try load("review", as: ReviewPage.self)
         #expect(try load("stories", as: StoriesResponse.self).stories.count > 0)
     }
+
+    @Test func answerResultDecodesTheDocumentedShape() throws {
+        let json = """
+        {"correct": true, "xp": 20, "rare_bonus": true, "level": 7, "level_xp": 360,
+         "level_next": 400, "leveled_up": false, "streak": 12, "badges_earned": ["first-rare-card"]}
+        """
+        let r = try JSONDecoder.studyFeed.decode(AnswerResult.self, from: Data(json.utf8))
+        #expect(r.correct && r.xp == 20 && r.rareBonus == true && r.levelNext == 400)
+        // Only the two required fields: everything else may be missing.
+        let minimal = try JSONDecoder.studyFeed.decode(AnswerResult.self, from: Data(#"{"correct":false,"xp":0}"#.utf8))
+        #expect(!minimal.correct && minimal.level == nil)
+    }
 }
