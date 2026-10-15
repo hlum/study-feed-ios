@@ -90,4 +90,14 @@ struct FixtureDecodingTests {
         filter = FeedFilter(topic: .init(rawValue: "ios"), japanese: true)
         #expect(!filter.matches(ios))   // not tagged Japanese
     }
+
+    @Test func japaneseCardsGetNeutralTrackingAndJapaneseLocale() throws {
+        let ja = try JSONDecoder.studyFeed.decode(Card.self, from: Data(
+            #"{"id": 2, "card_type": "post", "topic": "ios", "lang": "ja", "title": "SwiftUIの状態管理", "body": "本文"}"#.utf8))
+        #expect(ja.isJapanese && ja.tracking(-1.2) == 0)
+        #expect(ja.locale.identifier == "ja_JP")
+        let en = try JSONDecoder.studyFeed.decode(Card.self, from: Data(
+            #"{"id": 3, "card_type": "post", "topic": "ios", "title": "t", "body": "b"}"#.utf8))
+        #expect(!en.isJapanese && en.tracking(-1.2) == -1.2)
+    }
 }

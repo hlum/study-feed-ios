@@ -24,7 +24,7 @@ struct QuizSheet: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 24) {
                         Text(quiz.question)
-                            .font(.system(.title2, weight: .bold)).tracking(-0.4)
+                            .font(.system(.title2, weight: .bold)).tracking(card.tracking(-0.4))
                         VStack(spacing: 8) {
                             ForEach(Array(quiz.options.enumerated()), id: \.offset) { i, text in
                                 option(i, text, quiz: quiz)
@@ -43,6 +43,7 @@ struct QuizSheet: View {
         }
         .background(Theme.bg)
         .presentationBackground(Theme.bg)
+        .environment(\.locale, card.locale)
         .presentationDragIndicator(.visible)
         .sensoryFeedback(.success, trigger: successTick)
         .sensoryFeedback(.error, trigger: errorTick)

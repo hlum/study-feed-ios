@@ -48,7 +48,7 @@ struct ReviewView: View {
         VStack(alignment: .leading, spacing: 16) {
             Text(card.topic.title).font(.subheadline).foregroundStyle(Theme.muted)
             Text(card.reviewFront)
-                .font(.system(.title2, weight: .bold)).tracking(-0.4)
+                .font(.system(.title2, weight: .bold)).tracking(card.tracking(-0.4))
             if store.showingAnswer {
                 Divider().overlay(Theme.sep)
                 Text(card.reviewBack).font(.title3).fixedSize(horizontal: false, vertical: true)
@@ -64,6 +64,7 @@ struct ReviewView: View {
         .background(Theme.fill, in: RoundedRectangle(cornerRadius: 28))
         .padding(.horizontal, 12)
         .animation(.spring(response: 0.35, dampingFraction: 1), value: store.showingAnswer)
+        .environment(\.locale, card.locale)
         .id(card.id)
     }
 

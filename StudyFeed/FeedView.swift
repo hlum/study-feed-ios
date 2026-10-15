@@ -93,6 +93,7 @@ struct CardPage: View {
                 .padding(.horizontal, 16)
         }
         .padding(.vertical, 20)
+        .environment(\.locale, card.locale)
         .task(id: card.id) {
             try? await Task.sleep(for: .seconds(2))
             guard !Task.isCancelled else { return }

@@ -70,6 +70,14 @@ struct Card: Codable, Identifiable, Hashable {
 
     var isRare: Bool { rare ?? false }
 
+    var isJapanese: Bool { lang == "ja" }
+
+    /// Latin headlines are set tight; kana and kanji are not, tight tracking makes them collide.
+    func tracking(_ latin: CGFloat) -> CGFloat { isJapanese ? 0 : latin }
+
+    /// Lets iOS pick Japanese glyph forms for shared kanji, whatever the phone's language is.
+    var locale: Locale { isJapanese ? Locale(identifier: "ja_JP") : .autoupdatingCurrent }
+
     /// "news" (from an article) or "lesson" (part of a series). Series cards have no article.
     var resolvedKind: String { kind ?? (seriesId == nil ? "news" : "lesson") }
 

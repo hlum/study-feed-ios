@@ -18,7 +18,7 @@ struct PostCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text(card.metaLine).font(.subheadline).foregroundStyle(Theme.muted)
-            Text(card.title).font(.system(.title2, weight: .bold)).tracking(-0.4)
+            Text(card.title).font(.system(.title2, weight: .bold)).tracking(card.tracking(-0.4))
             Text(card.body).font(.body).foregroundStyle(Theme.ink.opacity(0.85))
             if let quote = card.source?.quote {
                 VStack(alignment: .leading, spacing: 6) {
@@ -45,7 +45,7 @@ struct TerminalCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text(card.metaLine).font(.subheadline).foregroundStyle(Theme.muted)
-            Text(card.title).font(.system(.title2, weight: .bold)).tracking(-0.4)
+            Text(card.title).font(.system(.title2, weight: .bold)).tracking(card.tracking(-0.4))
             if let visual = card.visual { VisualView(visual: visual) }
             Text(card.body).font(.body).foregroundStyle(Theme.ink.opacity(0.85))
             SourceLink(source: card.source)
@@ -88,7 +88,7 @@ struct PosterCard: View {
         VStack(alignment: .leading, spacing: 0) {
             Text(card.metaLine).font(.subheadline.weight(.semibold)).opacity(0.75)
             Text(card.title)
-                .font(.system(size: 36, weight: .heavy)).tracking(-1.2).lineSpacing(-2)
+                .font(.system(size: 36, weight: .heavy)).tracking(card.tracking(-1.2)).lineSpacing(card.isJapanese ? 2 : -2)
                 .padding(.top, 20)
             Spacer(minLength: 12)
             Text(card.body).font(.body)
@@ -102,7 +102,7 @@ struct PosterCard: View {
     private func slideView(_ slide: Slide, isLast: Bool) -> some View {
         VStack(alignment: .leading, spacing: 14) {
             if let t = slide.title {
-                Text(t).font(.system(size: 28, weight: .heavy)).tracking(-0.8)
+                Text(t).font(.system(size: 28, weight: .heavy)).tracking(card.tracking(-0.8))
             }
             if let b = slide.body { Text(b).font(.title3) }
             if let v = slide.visual {
