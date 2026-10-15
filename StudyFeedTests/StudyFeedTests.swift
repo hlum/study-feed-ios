@@ -151,4 +151,56 @@ struct FixtureDecodingTests {
         store.send("Make it a flashcard")
         #expect(store.messages.count == before)   // blocked: nothing sent, no second Claude call
     }
+
+    @Test func chatGPTPromptCarriesBriefAndOnlyWebSourceLinks() throws {
+        let card = try JSONDecoder.studyFeed.decode(Card.self, from: Data("""
+            {"id": 7, "card_type": "post", "topic": "security", "title": "A zip entry can write anywhere",
+             "body": "Resolve the path before extracting.", "part": 2, "parts_total": 8,
+             "source": {"label": "PortSwigger Research", "quote": "It wrote outside the folder.",
+                        "url": "https://portswigger.net/research/zip"}}
+            """.utf8))
+        let prompt = ChatGPTHandoff.prompt(for: card)
+        #expect(prompt.contains("A zip entry can write anywhere"))
+        #expect(prompt.contains("Resolve the path before extracting."))
+        #expect(prompt.contains("Source: https://portswigger.net/research/zip"))
+        #expect(prompt.contains("lesson 2 of 8"))
+
+        // A link that isn't plain http(s) never reaches the prompt.
+        var bad = card
+        bad.source = Source(label: "x", quote: nil, url: "javascript:alert(1)")
+        #expect(!ChatGPTHandoff.prompt(for: bad).contains("javascript:"))
+
+        // The link round-trips through the URL, and a long brief is trimmed to fit.
+        var long = card
+        long = try JSONDecoder.studyFeed.decode(Card.self, from: Data("""
+            {"id": 8, "card_type": "post", "topic": "ai", "title": "t",
+             "body": "\(String(repeating: "word ", count: 600))",
+             "source": {"url": "https://example.com/a?b=1&c=2"}}
+            """.utf8))
+        let url = try #require(ChatGPTHandoff.url(for: ChatGPTHandoff.prompt(for: long)))
+        #expect(url.host == "chatgpt.com")
+        let q = try #require(URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.first { $0.name == "q" }?.value)
+        #expect(q.contains("Source: https://example.com/a?b=1&c=2"))
+        #expect(url.absoluteString.count < 1_700)
+    }
+
+    @Test func japaneseCardsGetAJapanesePrompt() throws {
+        let card = try JSONDecoder.studyFeed.decode(Card.self, from: Data(
+            #"{"id": 9, "card_type": "post", "topic": "ios", "lang": "ja", "title": "SwiftUIの状態管理", "body": "本文"}"#.utf8))
+        let prompt = ChatGPTHandoff.prompt(for: card)
+        #expect(prompt.contains("トピック: SwiftUIの状態管理") && prompt.contains("やさしく説明"))
+    }
+
+    @MainActor @Test func nextPartIsFoundOnlyWhenItIsInTheFeed() throws {
+        func card(_ id: Int, _ series: String?, _ part: Int?) throws -> Card {
+            let s = series.map { #", "series_id": "\#($0)", "part": \#(part!), "parts_total": 3"# } ?? ""
+            return try JSONDecoder.studyFeed.decode(Card.self, from: Data(
+                #"{"id": \#(id), "card_type": "post", "topic": "ai", "title": "t", "body": "b"\#(s)}"#.utf8))
+        }
+        let store = FeedStore(api: APIClient())
+        store.cards = [try card(1, "tcp", 1), try card(2, "dns", 2), try card(3, "tcp", 2), try card(4, nil, nil)]
+        #expect(store.nextPart(of: store.cards[0])?.id == 3)   // same series, next part
+        #expect(store.nextPart(of: store.cards[2]) == nil)     // part 3 isn't loaded yet
+        #expect(store.nextPart(of: store.cards[3]) == nil)     // news has no series
+    }
 }

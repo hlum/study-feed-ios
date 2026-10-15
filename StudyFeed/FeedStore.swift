@@ -67,6 +67,12 @@ final class FeedStore {
             .compactMap { $0.value.first.map { (key: $0.0, name: $0.1) } }
     }
 
+    /// The next part of this card's series, if it is among the cards being shown.
+    func nextPart(of card: Card) -> Card? {
+        guard let series = card.seriesId, let part = card.part else { return nil }
+        return visibleCards.first { $0.seriesId == series && $0.part == part + 1 }
+    }
+
     var hasJapanese: Bool { cards.contains { $0.lang == "ja" } }
 
     /// A narrow filter may match few of the loaded cards; keep paging until there is something to read.

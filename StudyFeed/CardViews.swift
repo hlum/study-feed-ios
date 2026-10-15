@@ -33,7 +33,7 @@ struct PostCard: View {
             }
             SourceLink(source: card.source)
             if let visual = card.visual { VisualView(visual: visual) }
-            Cliffhanger(text: card.cliffhanger)
+            Cliffhanger(card: card)
         }
     }
 }
@@ -49,7 +49,7 @@ struct TerminalCard: View {
             if let visual = card.visual { VisualView(visual: visual) }
             Text(card.body).font(.body).foregroundStyle(Theme.ink.opacity(0.85))
             SourceLink(source: card.source)
-            Cliffhanger(text: card.cliffhanger)
+            Cliffhanger(card: card)
         }
     }
 }
@@ -122,16 +122,47 @@ struct PosterCard: View {
     }
 }
 
+/// Lets a card find and jump to the next part of its series in the feed.
+struct SeriesNav {
+    var next: (Card) -> Card? = { _ in nil }
+    var jump: (Card) -> Void = { _ in }
+}
+
+private struct SeriesNavKey: EnvironmentKey {
+    static let defaultValue = SeriesNav()
+}
+
+extension EnvironmentValues {
+    var seriesNav: SeriesNav {
+        get { self[SeriesNavKey.self] }
+        set { self[SeriesNavKey.self] = newValue }
+    }
+}
+
+/// The teaser question, and for a series card a way to read the answer: jump to the next
+/// part when it's in the feed, otherwise say which part comes next.
 struct Cliffhanger: View {
-    let text: String?
+    let card: Card
+    @Environment(\.seriesNav) private var nav
 
     var body: some View {
-        if let text {
-            HStack(spacing: 6) {
-                Text(text).font(.subheadline.weight(.semibold))
-                Image(systemName: "chevron.up").font(.caption.weight(.bold))
+        if let text = card.cliffhanger {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(text).font(.subheadline.weight(.semibold)).foregroundStyle(Theme.accent)
+                if let part = card.part, let total = card.partsTotal, part < total {
+                    if let next = nav.next(card) {
+                        Button { nav.jump(next) } label: {
+                            Label("Read part \(part + 1)", systemImage: "arrow.down")
+                                .font(.subheadline.weight(.semibold))
+                                .frame(minHeight: 44, alignment: .leading)
+                        }
+                        .buttonStyle(PressStyle())
+                        .foregroundStyle(Theme.ink)
+                    } else {
+                        Text("Part \(part + 1) of \(total) is next").font(.footnote).foregroundStyle(Theme.muted)
+                    }
+                }
             }
-            .foregroundStyle(Theme.accent)
             .padding(.top, 4)
         }
     }

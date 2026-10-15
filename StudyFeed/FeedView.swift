@@ -11,6 +11,7 @@ struct FeedView: View {
             if store.cards.isEmpty {
                 emptyState
             } else {
+                ScrollViewReader { proxy in
                 ScrollView(.vertical) {
                     LazyVStack(spacing: 0) {
                         if !store.stories.isEmpty {
@@ -22,6 +23,7 @@ struct FeedView: View {
                         }
                         ForEach(store.visibleCards) { card in
                             CardPage(card: card, onAnswered: { Task { await store.reloadStats() } })
+                                .id(card.id)
                                 .task { await store.cardAppeared(card) }
                             Divider().overlay(Theme.sep)
                         }
@@ -30,6 +32,11 @@ struct FeedView: View {
                 }
                 .scrollIndicators(.hidden)
                 .refreshable { await store.refresh() }
+                .environment(\.seriesNav, SeriesNav(
+                    next: { store.nextPart(of: $0) },
+                    jump: { target in withAnimation(.spring(response: 0.45, dampingFraction: 1)) { proxy.scrollTo(target.id, anchor: .top) } }
+                ))
+                }
             }
         }
         .background(Theme.bg)
@@ -167,6 +174,13 @@ struct ActionBar: View {
                 Image(systemName: saved ? "bookmark.fill" : "bookmark").frame(width: 44, height: 44)
             }
             .accessibilityLabel("Save")
+            Menu {
+                Button { ChatGPTHandoff.open(card) } label: { Label("Ask ChatGPT", systemImage: "arrow.up.forward.app") }
+                Button { ChatGPTHandoff.copy(card) } label: { Label("Copy brief with links", systemImage: "doc.on.doc") }
+            } label: {
+                Image(systemName: "ellipsis").frame(width: 44, height: 44)
+            }
+            .accessibilityLabel("More")
             Spacer()
             Button(action: onQuiz) {
                 Text(card.isRare ? "Quiz · 2× XP" : "Quiz")
