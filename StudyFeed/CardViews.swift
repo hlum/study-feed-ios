@@ -31,6 +31,7 @@ struct PostCard: View {
                 .padding(16)
                 .overlay(RoundedRectangle(cornerRadius: 14).stroke(Theme.sep))
             }
+            SourceLink(source: card.source)
             if let visual = card.visual { VisualView(visual: visual) }
             Cliffhanger(text: card.cliffhanger)
         }
@@ -47,6 +48,7 @@ struct TerminalCard: View {
             Text(card.title).font(.system(.title2, weight: .bold)).tracking(-0.4)
             if let visual = card.visual { VisualView(visual: visual) }
             Text(card.body).font(.body).foregroundStyle(Theme.ink.opacity(0.85))
+            SourceLink(source: card.source)
             Cliffhanger(text: card.cliffhanger)
         }
     }
