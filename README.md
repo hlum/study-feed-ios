@@ -19,3 +19,11 @@ The API contract is in [docs/API.md](docs/API.md).
 
 Dark only, one peach accent (`#F5C99B`), SF Pro and SF Mono. Three card types:
 poster (swipeable slides), text post, and terminal (real command or code output).
+
+## Notes
+
+- The app allows plain `http://` (see `Info-ATS.plist`) because the server is only reachable
+  over Tailscale, which already encrypts traffic. Nothing is exposed to the public internet.
+- The server address is a setting, never hard-coded. For development you can also launch with
+  `-serverURL http://<tailscale-ip>:8001`; it is saved for the next launch.
+- To run on a real iPhone, pick your own team in Xcode's Signing & Capabilities.
