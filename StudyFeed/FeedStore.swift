@@ -73,27 +73,26 @@ final class FeedStore {
 
     func unhide(_ key: String) { hiddenSites[key] = nil }
 
-    /// Topics present in the loaded cards, most common first.
+    /// Topics present in the loaded cards. Alphabetical, so the menu never reshuffles.
     var topics: [Topic] {
-        Dictionary(grouping: shownCards, by: \.topic).sorted { $0.value.count > $1.value.count }.map(\.key)
+        Set(shownCards.map(\.topic)).sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
     }
 
-    /// Sites for the chip row: from the loaded news cards that pass the other filters, so choosing
-    /// 日本語 or a topic narrows the row to the sites that matter. Chosen sites always stay listed.
+    /// Sites for the chip row, alphabetical so chips never jump when you pick one or more cards load.
+    /// Choosing 日本語 or a topic narrows the row to sites that have matching cards; chosen sites stay listed.
     var sites: [(key: String, name: String)] {
         var others = filter
         others.siteKeys = []
         let pool = others.isActive ? shownCards.filter(others.matches) : shownCards
-        func names(_ cards: [Card]) -> [(key: String, name: String)] {
-            let news = cards.compactMap { c in c.siteKey.map { ($0, c.siteName ?? $0) } }
-            return Dictionary(grouping: news, by: \.0).sorted { $0.value.count > $1.value.count }
-                .compactMap { $0.value.first.map { (key: $0.0, name: $0.1) } }
-        }
-        var result = names(pool)
-        for chosen in names(shownCards) where filter.siteKeys.contains(chosen.key) && !result.contains(where: { $0.key == chosen.key }) {
-            result.append(chosen)
-        }
-        return result
+        var available = Set(pool.compactMap(\.siteKey)).union(filter.siteKeys)
+        available.formIntersection(shownCards.compactMap(\.siteKey))
+        var names: [String: String] = [:]
+        for card in shownCards { if let key = card.siteKey, names[key] == nil { names[key] = card.siteName ?? key } }
+        return available.compactMap { key in names[key].map { (key: key, name: $0) } }
+            .sorted {
+                let order = $0.name.localizedCaseInsensitiveCompare($1.name)
+                return order == .orderedSame ? $0.key < $1.key : order == .orderedAscending
+            }
     }
 
     /// The next part of this card's series, if it is among the cards being shown.

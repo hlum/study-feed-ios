@@ -292,4 +292,21 @@ struct FixtureDecodingTests {
         saved.toggle(card)
         #expect(!saved.isSaved(80) && saved.cards.isEmpty)
     }
+
+    @MainActor @Test func siteChipsKeepTheirOrderWhateverYouPick() throws {
+        UserDefaults.standard.removeObject(forKey: "hiddenSites")
+        func card(_ id: Int, _ site: String) throws -> Card {
+            try JSONDecoder.studyFeed.decode(Card.self, from: Data(
+                #"{"id": \#(id), "card_type": "article", "topic": "ai", "title": "t", "body": "b", "site": "\#(site)"}"#.utf8))
+        }
+        let store = FeedStore(api: APIClient())
+        // Equal counts and a mix of cases: the old frequency sort shuffled these.
+        store.cards = try ["Zenn", "qiita", "Publickey", "DeNA", "Zenn", "Sarunw", "NSHipster"].enumerated().map { try card($0 + 1, $1) }
+        let before = store.sites.map(\.name)
+        #expect(before == ["DeNA", "NSHipster", "Publickey", "qiita", "Sarunw", "Zenn"])
+        for pick in ["qiita", "zenn", "publickey"] {                  // picking chips never reorders the row
+            store.filter.siteKeys.insert(pick)
+            #expect(store.sites.map(\.name) == before)
+        }
+    }
 }
