@@ -22,7 +22,7 @@ struct FeedView: View {
                             noMatches
                         }
                         ForEach(store.visibleCards) { card in
-                            CardPage(card: card, onAnswered: { Task { await store.reloadStats() } }, onCardUpdated: { store.replace($0) })
+                            CardPage(card: card, onAnswered: { Task { await store.reloadStats() } }, onCardUpdated: { store.replace($0) }, onHideSite: { store.hide($0) })
                                 .id(card.id)
                                 .task { await store.cardAppeared(card) }
                             Divider().overlay(Theme.sep)
@@ -90,6 +90,7 @@ struct CardPage: View {
     let card: Card
     var onAnswered: () -> Void = {}
     var onCardUpdated: (Card) -> Void = { _ in }
+    var onHideSite: ((Card) -> Void)?
 
     @State private var quizCard: Card?
     @State private var askCard: Card?
@@ -108,6 +109,17 @@ struct CardPage: View {
             }
         }
         .padding(.vertical, 20)
+        .overlay(alignment: .topTrailing) {
+            if let name = card.siteName, let onHideSite {
+                Menu {
+                    Button(role: .destructive) { onHideSite(card) } label: { Label("Hide \(name)", systemImage: "eye.slash") }
+                } label: {
+                    Image(systemName: "ellipsis").foregroundStyle(Theme.muted).frame(width: 44, height: 44)
+                }
+                .padding(.top, 8).padding(.trailing, 8)
+                .accessibilityLabel("More options for \(name)")
+            }
+        }
         .environment(\.locale, card.locale)
         .task(id: card.id) {
             try? await Task.sleep(for: .seconds(2))
@@ -182,8 +194,8 @@ struct ActionBar: View {
     let onAsk: () -> Void
     let onDeeper: () -> Void
 
+    @Environment(SavedStore.self) private var savedStore
     @State private var gotIt = false
-    @State private var saved = false
 
     var body: some View {
         HStack(spacing: 2) {
@@ -199,8 +211,8 @@ struct ActionBar: View {
                 Image(systemName: "text.book.closed").frame(width: 42, height: 44)
             }
             .accessibilityLabel("Go deeper")
-            Button { saved.toggle(); Task { await api.react(card.id, kind: "save", on: saved) } } label: {
-                Image(systemName: saved ? "bookmark.fill" : "bookmark").frame(width: 42, height: 44)
+            Button { savedStore.toggle(card) } label: {
+                Image(systemName: savedStore.isSaved(card.id) ? "bookmark.fill" : "bookmark").frame(width: 42, height: 44)
             }
             .accessibilityLabel("Save")
             Button { ChatGPTHandoff.open(card) } label: {
@@ -225,6 +237,6 @@ struct ActionBar: View {
         .foregroundStyle(Theme.ink)
         .buttonStyle(.plain)
         .sensoryFeedback(.selection, trigger: gotIt)
-        .sensoryFeedback(.selection, trigger: saved)
+        .sensoryFeedback(.selection, trigger: savedStore.isSaved(card.id))
     }
 }

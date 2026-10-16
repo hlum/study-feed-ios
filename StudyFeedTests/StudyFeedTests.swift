@@ -262,4 +262,34 @@ struct FixtureDecodingTests {
             #"{"id": 999, "card_type": "post", "topic": "ai", "title": "x", "body": "y"}"#.utf8)))
         #expect(store.cards.count == 1)
     }
+
+    @MainActor @Test func hidingASiteRemovesItsCardsAndChipsUntilShownAgain() throws {
+        UserDefaults.standard.removeObject(forKey: "hiddenSites")
+        func card(_ id: Int, _ site: String) throws -> Card {
+            try JSONDecoder.studyFeed.decode(Card.self, from: Data(
+                #"{"id": \#(id), "card_type": "article", "topic": "ai", "title": "t", "body": "b", "site": "\#(site)"}"#.utf8))
+        }
+        let store = FeedStore(api: APIClient())
+        store.cards = [try card(1, "Zenn"), try card(2, "Qiita"), try card(3, "Zenn")]
+        store.filter.siteKeys = ["zenn"]
+        store.hide(store.cards[0])
+        #expect(store.visibleCards.map(\.id) == [2])                    // Zenn cards gone, Qiita stays
+        #expect(!store.sites.contains { $0.key == "zenn" })              // and its chip
+        #expect(store.filter.siteKeys.isEmpty)                           // the selection is cleared too
+        #expect(store.hiddenSites == ["zenn": "Zenn"])
+        store.unhide("zenn")
+        #expect(store.visibleCards.count == 3)
+        UserDefaults.standard.removeObject(forKey: "hiddenSites")
+    }
+
+    @MainActor @Test func savingIsInstantAndTheSavedListFollows() throws {
+        let card = try JSONDecoder.studyFeed.decode(Card.self, from: Data(
+            #"{"id": 80, "card_type": "post", "topic": "ai", "title": "t", "body": "b"}"#.utf8))
+        let saved = SavedStore(api: APIClient())      // no server address, so the request fails and rolls back later
+        #expect(!saved.isSaved(80))
+        saved.toggle(card)
+        #expect(saved.isSaved(80) && saved.cards.map(\.id) == [80])   // shown before the server answers
+        saved.toggle(card)
+        #expect(!saved.isSaved(80) && saved.cards.isEmpty)
+    }
 }

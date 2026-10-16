@@ -29,6 +29,11 @@ final class FeedStore {
     var isLoading = false
     var filter = FeedFilter() { didSet { if oldValue != filter { Task { await loadMoreIfSparse() } } } }
 
+    /// Sites the reader chose to hide: key -> display name. Kept on this phone.
+    var hiddenSites: [String: String] = UserDefaults.standard.dictionary(forKey: "hiddenSites") as? [String: String] ?? [:] {
+        didSet { UserDefaults.standard.set(hiddenSites, forKey: "hiddenSites") }
+    }
+
     @ObservationIgnored private let api: APIClient
     @ObservationIgnored private var cursor: Int?
     @ObservationIgnored private var reachedEnd = false
@@ -40,7 +45,7 @@ final class FeedStore {
         isLoading = true
         defer { isLoading = false }
         do {
-            let page = try await api.feed(cursor: nil)
+            let page = try await api.feed(cursor: nil, limit: 50)   // enough cards that every site has a chip
             cards = page.cards
             cursor = page.nextCursor
             reachedEnd = page.cards.isEmpty
@@ -53,11 +58,24 @@ final class FeedStore {
         }
     }
 
-    var visibleCards: [Card] { filter.isActive ? cards.filter(filter.matches) : cards }
+    private func isHidden(_ card: Card) -> Bool { card.siteKey.map { hiddenSites[$0] != nil } ?? false }
+
+    /// Loaded cards minus the sites you hid.
+    private var shownCards: [Card] { hiddenSites.isEmpty ? cards : cards.filter { !isHidden($0) } }
+
+    var visibleCards: [Card] { filter.isActive ? shownCards.filter(filter.matches) : shownCards }
+
+    func hide(_ card: Card) {
+        guard let key = card.siteKey, let name = card.siteName else { return }
+        hiddenSites[key] = name
+        filter.siteKeys.remove(key)
+    }
+
+    func unhide(_ key: String) { hiddenSites[key] = nil }
 
     /// Topics present in the loaded cards, most common first.
     var topics: [Topic] {
-        Dictionary(grouping: cards, by: \.topic).sorted { $0.value.count > $1.value.count }.map(\.key)
+        Dictionary(grouping: shownCards, by: \.topic).sorted { $0.value.count > $1.value.count }.map(\.key)
     }
 
     /// Sites for the chip row: from the loaded news cards that pass the other filters, so choosing
@@ -65,14 +83,14 @@ final class FeedStore {
     var sites: [(key: String, name: String)] {
         var others = filter
         others.siteKeys = []
-        let pool = others.isActive ? cards.filter(others.matches) : cards
+        let pool = others.isActive ? shownCards.filter(others.matches) : shownCards
         func names(_ cards: [Card]) -> [(key: String, name: String)] {
             let news = cards.compactMap { c in c.siteKey.map { ($0, c.siteName ?? $0) } }
             return Dictionary(grouping: news, by: \.0).sorted { $0.value.count > $1.value.count }
                 .compactMap { $0.value.first.map { (key: $0.0, name: $0.1) } }
         }
         var result = names(pool)
-        for chosen in names(cards) where filter.siteKeys.contains(chosen.key) && !result.contains(where: { $0.key == chosen.key }) {
+        for chosen in names(shownCards) where filter.siteKeys.contains(chosen.key) && !result.contains(where: { $0.key == chosen.key }) {
             result.append(chosen)
         }
         return result
@@ -89,7 +107,7 @@ final class FeedStore {
         if let i = cards.firstIndex(where: { $0.id == card.id }) { cards[i] = card }
     }
 
-    var hasJapanese: Bool { cards.contains { $0.lang == "ja" } }
+    var hasJapanese: Bool { shownCards.contains { $0.lang == "ja" } }
 
     /// A narrow filter may match few of the loaded cards; keep paging until there is something to read.
     func loadMoreIfSparse() async {

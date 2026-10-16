@@ -38,7 +38,7 @@ final class APIClient {
 
     // MARK: Endpoints
 
-    func feed(cursor: Int?, limit: Int = 10) async throws -> FeedPage {
+    func feed(cursor: Int?, limit: Int = 20) async throws -> FeedPage {
         var q = ["limit": String(limit)]
         if let cursor { q["cursor"] = String(cursor) }
         return try await get("/feed", query: q)
@@ -69,7 +69,11 @@ final class APIClient {
     }
 
     func react(_ cardId: Int, kind: String, on: Bool) async {
-        _ = try? await post("/react", ["card_id": cardId, "kind": kind, "on": on]) as Data
+        try? await setReaction(cardId, kind: kind, on: on)
+    }
+
+    func setReaction(_ cardId: Int, kind: String, on: Bool) async throws {
+        _ = try await post("/react", ["card_id": cardId, "kind": kind, "on": on]) as Data
     }
 
     func answer(_ cardId: Int, choice: Int) async throws -> AnswerResult {

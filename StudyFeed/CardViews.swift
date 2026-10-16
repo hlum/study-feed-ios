@@ -24,7 +24,7 @@ struct ArticleCard: View {
     var body: some View {
         Button(action: onOpen) {
             VStack(alignment: .leading, spacing: 10) {
-                Text(meta).font(.subheadline).foregroundStyle(Theme.muted).lineLimit(1)
+                Text(meta).font(.subheadline).foregroundStyle(Theme.muted).lineLimit(1).padding(.trailing, 36)
                 Text(card.title)
                     .font(.system(.title3, weight: .bold)).tracking(card.tracking(-0.3))
                     .multilineTextAlignment(.leading)
@@ -49,7 +49,7 @@ struct PostCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text(card.metaLine).font(.subheadline).foregroundStyle(Theme.muted)
+            Text(card.metaLine).font(.subheadline).foregroundStyle(Theme.muted).padding(.trailing, 36)
             Text(card.title).font(.system(.title2, weight: .bold)).tracking(card.tracking(-0.4))
             Text(card.body).font(.body).foregroundStyle(Theme.ink.opacity(0.85))
             if let quote = card.source?.quote {
@@ -76,7 +76,7 @@ struct TerminalCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text(card.metaLine).font(.subheadline).foregroundStyle(Theme.muted)
+            Text(card.metaLine).font(.subheadline).foregroundStyle(Theme.muted).padding(.trailing, 36)
             Text(card.title).font(.system(.title2, weight: .bold)).tracking(card.tracking(-0.4))
             if let visual = card.visual { VisualView(visual: visual) }
             Text(card.body).font(.body).foregroundStyle(Theme.ink.opacity(0.85))

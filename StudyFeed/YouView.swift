@@ -27,6 +27,7 @@ struct YouView: View {
                     ProgressView().frame(maxWidth: .infinity)
                 }
 
+                hiddenSites
                 settings
             }
             .padding(.horizontal, 20)
@@ -124,6 +125,26 @@ struct YouView: View {
                     .overlay(Capsule().strokeBorder(badge.earned ? .clear : Theme.sep, style: StrokeStyle(lineWidth: 1, dash: [4, 3])))
                     .accessibilityLabel("\(badge.name), \(badge.earned ? "earned" : "not yet earned")")
                 }
+            }
+        }
+    }
+
+    @ViewBuilder private var hiddenSites: some View {
+        if !store.hiddenSites.isEmpty {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Hidden sites").font(.headline)
+                VStack(spacing: 0) {
+                    ForEach(store.hiddenSites.sorted { $0.value < $1.value }, id: \.key) { key, name in
+                        HStack {
+                            Text(name)
+                            Spacer()
+                            Button("Show") { store.unhide(key) }.foregroundStyle(Theme.accent).frame(minHeight: 44)
+                        }
+                        .padding(.horizontal, 16)
+                        if key != store.hiddenSites.sorted(by: { $0.value < $1.value }).last?.key { Divider().overlay(Theme.sep) }
+                    }
+                }
+                .background(Theme.fill, in: RoundedRectangle(cornerRadius: 20))
             }
         }
     }
