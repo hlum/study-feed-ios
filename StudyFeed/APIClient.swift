@@ -8,6 +8,8 @@ enum APIError: LocalizedError {
         switch self {
         case .notConfigured: "Set your server address in the You tab."
         case .badURL: "The server address isn't a valid URL."
+        case .badStatus(503): "Claude is busy or at its usage limit. Try again later."
+        case .badStatus(502): "Couldn't make a good quiz this time. Try again."
         case .badStatus(let code): "The server answered \(code)."
         }
     }
@@ -49,6 +51,18 @@ final class APIClient {
     func stats() async throws -> Stats { try await get("/stats") }
 
     func review() async throws -> ReviewPage { try await get("/review") }
+
+    /// Asks the server to write a quiz for a card that has none (feed articles). One model
+    /// call the first time; after that the server returns the saved quiz.
+    func makeQuiz(cardId: Int) async throws -> Quiz {
+        struct Body: Decodable { let quiz: Quiz }
+        var request = URLRequest(url: try makeURL("/cards/\(cardId)/quiz"))
+        request.httpMethod = "POST"
+        request.timeoutInterval = 120
+        let (data, response) = try await session.data(for: request)
+        try check(response)
+        return try JSONDecoder.studyFeed.decode(Body.self, from: data).quiz
+    }
 
     func markSeen(_ cardId: Int) async {
         _ = try? await post("/seen", ["card_id": cardId]) as Data

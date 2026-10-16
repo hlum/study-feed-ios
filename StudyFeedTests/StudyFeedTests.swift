@@ -243,4 +243,23 @@ struct FixtureDecodingTests {
         #expect(ReaderSheet.paragraphs(from: article.text ?? "") == ["First.", "Second\nline", "Third."])
         #expect(try JSONDecoder.studyFeed.decode(ReaderArticle.self, from: Data(#"{"text": null}"#.utf8)).text == nil)
     }
+
+    @MainActor @Test func aQuizMadeOnDemandReplacesTheCardInTheFeed() throws {
+        let card = try JSONDecoder.studyFeed.decode(Card.self, from: Data(
+            #"{"id": 70, "card_type": "article", "topic": "ios", "title": "t", "body": "b"}"#.utf8))
+        let store = FeedStore(api: APIClient())
+        store.cards = [card]
+        #expect(store.cards[0].quiz == nil)
+
+        struct Body: Decodable { let quiz: Quiz }
+        let body = try JSONDecoder.studyFeed.decode(Body.self, from: Data(
+            #"{"quiz": {"question": "Q?", "options": ["a", "b", "c", "d"], "answer": 2, "explanation": "e"}}"#.utf8))
+        var updated = card
+        updated.quiz = body.quiz
+        store.replace(updated)
+        #expect(store.cards[0].quiz?.answer == 2)
+        store.replace(try JSONDecoder.studyFeed.decode(Card.self, from: Data(   // unknown card: ignored
+            #"{"id": 999, "card_type": "post", "topic": "ai", "title": "x", "body": "y"}"#.utf8)))
+        #expect(store.cards.count == 1)
+    }
 }

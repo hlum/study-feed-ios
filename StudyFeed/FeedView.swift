@@ -22,7 +22,7 @@ struct FeedView: View {
                             noMatches
                         }
                         ForEach(store.visibleCards) { card in
-                            CardPage(card: card, onAnswered: { Task { await store.reloadStats() } })
+                            CardPage(card: card, onAnswered: { Task { await store.reloadStats() } }, onCardUpdated: { store.replace($0) })
                                 .id(card.id)
                                 .task { await store.cardAppeared(card) }
                             Divider().overlay(Theme.sep)
@@ -89,17 +89,23 @@ struct CardPage: View {
     @Environment(APIClient.self) private var api
     let card: Card
     var onAnswered: () -> Void = {}
+    var onCardUpdated: (Card) -> Void = { _ in }
 
     @State private var quizCard: Card?
     @State private var askCard: Card?
     @State private var deeperCard: Card?
     @State private var readerCard: Card?
+    @State private var makingQuiz = false
+    @State private var quizError: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             content.padding(.horizontal, 20)
-            ActionBar(card: card, onQuiz: { quizCard = card }, onAsk: { askCard = card }, onDeeper: { deeperCard = card })
+            ActionBar(card: card, makingQuiz: makingQuiz, onQuiz: quizTapped, onAsk: { askCard = card }, onDeeper: { deeperCard = card })
                 .padding(.horizontal, 16)
+            if let quizError {
+                Text(quizError).font(.footnote).foregroundStyle(Theme.wrong).padding(.horizontal, 20)
+            }
         }
         .padding(.vertical, 20)
         .environment(\.locale, card.locale)
@@ -112,6 +118,25 @@ struct CardPage: View {
         .sheet(item: $askCard) { AskSheet(card: $0).presentationDetents([.large]) }
         .sheet(item: $deeperCard) { DeeperSheet(card: $0).presentationDetents([.large]) }
         .sheet(item: $readerCard) { ReaderSheet(card: $0).presentationDetents([.large]) }
+    }
+
+    /// Opens the quiz, first asking the server to write one if the card has none.
+    private func quizTapped() {
+        quizError = nil
+        guard card.quiz == nil else { quizCard = card; return }
+        guard !makingQuiz else { return }
+        makingQuiz = true
+        Task {
+            defer { makingQuiz = false }
+            do {
+                var updated = card
+                updated.quiz = try await api.makeQuiz(cardId: card.id)
+                onCardUpdated(updated)
+                quizCard = updated
+            } catch {
+                quizError = error.localizedDescription
+            }
+        }
     }
 
     @ViewBuilder private var content: some View {
@@ -152,6 +177,7 @@ struct StoriesRow: View {
 struct ActionBar: View {
     @Environment(APIClient.self) private var api
     let card: Card
+    var makingQuiz = false
     let onQuiz: () -> Void
     let onAsk: () -> Void
     let onDeeper: () -> Void
@@ -182,15 +208,18 @@ struct ActionBar: View {
             }
             .accessibilityLabel("Ask ChatGPT")
             Spacer()
-            if card.quiz != nil {
-                Button(action: onQuiz) {
-                    Text(card.isRare ? "Quiz · 2× XP" : "Quiz")
-                        .font(.subheadline.weight(.semibold))
-                        .padding(.horizontal, 16).frame(height: 40)
-                        .overlay(Capsule().stroke(Theme.accent))
-                        .foregroundStyle(Theme.accent)
+            Button(action: onQuiz) {
+                HStack(spacing: 6) {
+                    if makingQuiz { ProgressView().controlSize(.small).tint(Theme.accent) }
+                    Text(makingQuiz ? "Making a quiz" : card.quiz == nil ? "Make a quiz" : card.isRare ? "Quiz · 2× XP" : "Quiz")
                 }
+                .font(.subheadline.weight(.semibold))
+                .padding(.horizontal, 16).frame(height: 40)
+                .overlay(Capsule().stroke(Theme.accent))
+                .foregroundStyle(Theme.accent)
             }
+            .disabled(makingQuiz)
+            .accessibilityHint(card.quiz == nil ? "Writes a quiz with Claude. Uses a little of your Claude usage." : "")
         }
         .font(.title3)
         .foregroundStyle(Theme.ink)

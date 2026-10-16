@@ -84,6 +84,11 @@ final class FeedStore {
         return visibleCards.first { $0.seriesId == series && $0.part == part + 1 }
     }
 
+    /// Swaps in an updated card (for example one that just got a quiz).
+    func replace(_ card: Card) {
+        if let i = cards.firstIndex(where: { $0.id == card.id }) { cards[i] = card }
+    }
+
     var hasJapanese: Bool { cards.contains { $0.lang == "ja" } }
 
     /// A narrow filter may match few of the loaded cards; keep paging until there is something to read.
