@@ -11,6 +11,38 @@ private extension Card {
     }
 }
 
+/// An article from a feed: its title and a little of its text. Tapping opens the reading view.
+/// Nothing here was written by a model.
+struct ArticleCard: View {
+    let card: Card
+    let onOpen: () -> Void
+
+    private var meta: String {
+        [card.topic.title, card.siteName, card.age].compactMap { $0 }.joined(separator: " · ")
+    }
+
+    var body: some View {
+        Button(action: onOpen) {
+            VStack(alignment: .leading, spacing: 10) {
+                Text(meta).font(.subheadline).foregroundStyle(Theme.muted).lineLimit(1)
+                Text(card.title)
+                    .font(.system(.title3, weight: .bold)).tracking(card.tracking(-0.3))
+                    .multilineTextAlignment(.leading)
+                if !card.body.isEmpty {
+                    Text(card.body).font(.subheadline).foregroundStyle(Theme.muted)
+                        .lineLimit(4).multilineTextAlignment(.leading)
+                }
+                Label("Read", systemImage: "arrow.up.right")
+                    .font(.subheadline.weight(.semibold)).foregroundStyle(Theme.accent)
+                    .frame(minHeight: 44, alignment: .leading)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+}
+
 /// Text post: concepts and news. Title, body, optional real quote, optional visual.
 struct PostCard: View {
     let card: Card

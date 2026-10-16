@@ -5,6 +5,8 @@ import Foundation
 
 enum CardType: String, Codable {
     case poster, post, terminal
+    /// A feed item shown as its title and a little body text. No model is involved until the reader asks.
+    case article
 
     /// A card type the app doesn't know yet still shows, as a plain post.
     init(from decoder: Decoder) throws {
@@ -60,7 +62,10 @@ struct Card: Codable, Identifiable, Hashable {
     var isReview: Bool?
     var previewIntervals: [String: String]?
     // Optional extras the server may add for filtering; the app falls back when absent.
+    var createdAt: String?
     var kind: String?
+    var seen: Bool?
+    var publishedAt: String?
     var lang: String?
     var site: String?
     var tags: [String]?
@@ -72,6 +77,31 @@ struct Card: Codable, Identifiable, Hashable {
 
     var isJapanese: Bool { lang == "ja" }
 
+    /// "3 hours ago" for the article's publish time (or when it arrived), nil if unknown.
+    var age: String? {
+        guard let raw = publishedAt ?? createdAt, let date = Card.parse(raw) else { return nil }
+        guard date < Date() else { return "just now" }
+        return Card.relative.localizedString(for: date, relativeTo: Date())
+    }
+
+    private static let relative: RelativeDateTimeFormatter = {
+        let f = RelativeDateTimeFormatter()
+        f.unitsStyle = .short
+        return f
+    }()
+
+    /// The server writes ISO times, with or without a zone (no zone means its local time).
+    private static func parse(_ raw: String) -> Date? {
+        if let d = ISO8601DateFormatter().date(from: raw) { return d }
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        for pattern in ["yyyy-MM-dd'T'HH:mm:ss", "yyyy-MM-dd HH:mm:ss", "yyyy-MM-dd"] {
+            f.dateFormat = pattern
+            if let d = f.date(from: raw) { return d }
+        }
+        return nil
+    }
+
     /// Latin headlines are set tight; kana and kanji are not, tight tracking makes them collide.
     func tracking(_ latin: CGFloat) -> CGFloat { isJapanese ? 0 : latin }
 
@@ -79,7 +109,7 @@ struct Card: Codable, Identifiable, Hashable {
     var locale: Locale { isJapanese ? Locale(identifier: "ja_JP") : .autoupdatingCurrent }
 
     /// "news" (from an article) or "lesson" (part of a series). Series cards have no article.
-    var resolvedKind: String { kind ?? (seriesId == nil ? "news" : "lesson") }
+    var resolvedKind: String { kind ?? (cardType == .article || seriesId == nil ? "news" : "lesson") }
 
     /// The site a news card came from, e.g. "KrebsOnSecurity". Nil for lessons.
     var siteName: String? {
@@ -188,6 +218,15 @@ struct LegendItem: Codable, Hashable {
 }
 
 // MARK: Responses
+
+/// The readable text the server pulled out of an article page.
+struct ReaderArticle: Codable {
+    var title: String?
+    var site: String?
+    var url: String?
+    var text: String?
+}
+
 
 struct FeedPage: Codable {
     let cards: [Card]

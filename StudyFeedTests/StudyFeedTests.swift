@@ -223,4 +223,24 @@ struct FixtureDecodingTests {
         store.filter.siteKeys = ["krebs"]                                      // a chosen site stays listed
         #expect(store.sites.contains { $0.key == "krebs" })
     }
+
+    @Test func articleCardsDecodeWithoutAnyModelFields() throws {
+        let card = try JSONDecoder.studyFeed.decode(Card.self, from: Data("""
+            {"id": 61, "card_type": "article", "topic": "ios", "lang": "ja", "site": "Zenn",
+             "title": "SwiftUIの状態管理", "body": "記事の冒頭のテキスト。",
+             "source": {"label": "Zenn", "url": "https://zenn.dev/a/b"},
+             "seen": true, "published_at": "2026-10-15T09:30:00"}
+            """.utf8))
+        #expect(card.cardType == .article && card.resolvedKind == "news")
+        #expect(card.quiz == nil && card.flashcard == nil && card.cliffhanger == nil)
+        #expect(card.seen == true && card.siteName == "Zenn" && card.isJapanese)
+        #expect(card.age != nil)
+    }
+
+    @Test func readerTextSplitsIntoParagraphs() throws {
+        let article = try JSONDecoder.studyFeed.decode(ReaderArticle.self, from: Data(
+            #"{"title": "t", "url": "https://x.dev", "text": "First.\n\n  Second\nline  \n\n\n\nThird."}"#.utf8))
+        #expect(ReaderSheet.paragraphs(from: article.text ?? "") == ["First.", "Second\nline", "Third."])
+        #expect(try JSONDecoder.studyFeed.decode(ReaderArticle.self, from: Data(#"{"text": null}"#.utf8)).text == nil)
+    }
 }

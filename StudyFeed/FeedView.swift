@@ -93,6 +93,7 @@ struct CardPage: View {
     @State private var quizCard: Card?
     @State private var askCard: Card?
     @State private var deeperCard: Card?
+    @State private var readerCard: Card?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -110,10 +111,12 @@ struct CardPage: View {
         .sheet(item: $quizCard) { QuizSheet(card: $0, onAnswered: onAnswered).presentationDetents([.large]) }
         .sheet(item: $askCard) { AskSheet(card: $0).presentationDetents([.large]) }
         .sheet(item: $deeperCard) { DeeperSheet(card: $0).presentationDetents([.large]) }
+        .sheet(item: $readerCard) { ReaderSheet(card: $0).presentationDetents([.large]) }
     }
 
     @ViewBuilder private var content: some View {
         switch card.cardType {
+        case .article: ArticleCard(card: card, onOpen: { readerCard = card })
         case .poster: PosterCard(card: card).frame(height: 480)
         case .post: PostCard(card: card)
         case .terminal: TerminalCard(card: card)
@@ -179,12 +182,14 @@ struct ActionBar: View {
             }
             .accessibilityLabel("Ask ChatGPT")
             Spacer()
-            Button(action: onQuiz) {
-                Text(card.isRare ? "Quiz · 2× XP" : "Quiz")
-                    .font(.subheadline.weight(.semibold))
-                    .padding(.horizontal, 16).frame(height: 40)
-                    .overlay(Capsule().stroke(Theme.accent))
-                    .foregroundStyle(Theme.accent)
+            if card.quiz != nil {
+                Button(action: onQuiz) {
+                    Text(card.isRare ? "Quiz · 2× XP" : "Quiz")
+                        .font(.subheadline.weight(.semibold))
+                        .padding(.horizontal, 16).frame(height: 40)
+                        .overlay(Capsule().stroke(Theme.accent))
+                        .foregroundStyle(Theme.accent)
+                }
             }
         }
         .font(.title3)

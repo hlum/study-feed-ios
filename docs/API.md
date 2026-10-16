@@ -138,3 +138,36 @@ Returns:
 
 ### `GET /health`
 Returns `{ "ok": true, "buffer": 97, "last_ingest": "...", "last_error": null }`.
+
+---
+
+## Article cards (no model) and a feed that keeps seen cards
+
+These are the changes that keep model usage down. The model writes only the lesson series cards.
+Everything else is plain feed data, and a model is called only when the reader asks.
+
+### `card_type: "article"`
+A feed item shown as a title and a little of its text. No model is involved in making it.
+
+```json
+{ "id": 61, "card_type": "article", "topic": "ios", "lang": "ja", "kind": "news",
+  "site": "Zenn", "title": "SwiftUIの状態管理", "body": "First ~280 characters of the feed's own summary, as plain text.",
+  "source": { "label": "Zenn", "url": "https://zenn.dev/a/b", "quote": null },
+  "published_at": "2026-10-15T09:30:00", "seen": false,
+  "quiz": null, "flashcard": null, "cliffhanger": null, "series_id": null }
+```
+
+- `topic` comes from the feed's tag in `feeds.txt` (for example `[ios]`, `[security]`), not from a model.
+- `lang` is detected from the text with no model (kana or kanji means `"ja"`).
+- `quiz`, `flashcard` and `cliffhanger` are null. The app hides the Quiz button when there is no quiz.
+
+### `GET /cards/{id}/reader`
+`{ "title": "...", "site": "...", "url": "...", "text": "paragraph\n\nparagraph" }`
+
+The readable text of the article page, extracted with no model (for example with trafilatura).
+Fetched on the first request and saved, so later requests are instant. If the page can't be
+read, return `{ "text": null }` and the app offers the website instead.
+
+### `GET /feed`
+Returns every card, newest first, **including cards already seen**, each with `"seen": true|false`.
+Seen cards are never hidden. `?unseen_only=true` gives the old behaviour.
